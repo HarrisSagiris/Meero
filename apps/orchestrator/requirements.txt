@@ -8,6 +8,6 @@ langgraph>=1.0
 stripe>=11.0
 supabase>=2.15
 httpx>=0.27
-pydantic>=2.10
+pydantic>=2.13.4
 pydantic-settings>=2.7
 websockets>=14
