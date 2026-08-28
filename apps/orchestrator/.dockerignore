@@ -1,0 +1,7 @@
+.venv
+workspace
+__pycache__
+*.pyc
+!.env.example
+docker-compose.yml
+Dockerfile

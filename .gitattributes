@@ -1,2 +1,19 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalize line endings on checkin; check out native on each platform.
+* text=auto eol=lf
+
+# Shell scripts must stay LF even on Windows checkouts.
+*.sh text eol=lf
+
+# Binary assets — never diff or line-ending-convert these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary
+
+# Generated / vendored — collapse in diffs and exclude from language stats.
+package-lock.json -diff linguist-generated

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format (Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+
+  web:
+    name: Web (lint · types · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -w apps/web
+      - run: npx -w apps/web tsc --noEmit
+      - run: npm run build -w apps/web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
+          NEXT_PUBLIC_ORCHESTRATOR_URL: http://localhost:8000
+
+  orchestrator:
+    name: Orchestrator (ruff · compile · vendored versions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - name: Ruff (syntax + pyflakes)
+        run: ruff check apps/orchestrator --select E9,F
+      - name: Byte-compile
+        run: python -m compileall -q apps/orchestrator/app
+      - name: Vendored package versions in sync
+        run: python apps/orchestrator/scripts/check_vendored_versions.py

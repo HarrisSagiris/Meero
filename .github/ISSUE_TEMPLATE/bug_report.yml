@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in Meero is broken or behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please **do not** file security issues here —
+        see [SECURITY.md](https://github.com/HarrisSagiris/Meero/blob/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, ordered steps. Include the natural-language prompt if a generated build is involved.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which part of the stack?
+      multiple: true
+      options:
+        - web (Next.js UI)
+        - api (FastAPI orchestrator)
+        - codegen-worker
+        - web-worker (next build / preview)
+        - deploy-worker (Vercel release)
+        - superagent-worker
+        - database / migrations / RLS
+        - generated app output
+        - not sure
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste real output (`make logs`, browser console, build logs). Redact secrets.
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: "APP_ENV (local/prod), OS, Node version, how you're running it (Docker / dev mode)."
+      placeholder: "local, macOS 15, Node 22, make up"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: "0.1.0 or commit sha"

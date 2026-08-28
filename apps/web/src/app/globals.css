@@ -1,0 +1,565 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    /* White system — white surfaces, black ink, silver lines, and a cool
+     dark-gray accent (#2b2f3a) in place of the old orange brand. The custom
+     v1 tokens (cream/ink/accent/…) are gone; Meero now speaks shadcn's
+     semantic tokens (background/foreground/primary/…) defined in :root
+     below, so every component — hand-written or shadcn — resolves its
+     palette from one place. */
+    --font-sans: var(--font-plus-jakarta-sans);
+    --font-mono: var(--font-geist-mono);
+    --font-serif: var(--font-instrument-serif);
+
+    --shadow-primary/10:
+        0 1px 2px rgb(20 10 0 / 0.04), 0 8px 24px rgb(20 10 0 / 0.06);
+    --shadow-composer:
+        0 2px 6px rgb(20 10 0 / 0.06), 0 20px 56px rgb(20 10 0 / 0.16);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Scrolling works everywhere, scrollbars stay invisible */
+* {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+    display: none;
+}
+
+/* Consistent, accessible keyboard focus — but never boxes on text fields
+   (the composer has its own focus-within treatment) */
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: none;
+}
+
+/* Landing — full-bleed, vivid: a warm glow at the very top AND another
+   rising from the bottom, white breathing room in between where the
+   heading/composer sit. Bolder than the old "whisper" version on purpose —
+   the page should read as alive the instant it loads, not just at the fold. */
+.meero-landing-bg {
+    background:
+        radial-gradient(
+            120% 55% at 50% -12%,
+            #ffcda1 0%,
+            rgb(255 205 161 / 0) 62%
+        ),
+        radial-gradient(
+            120% 60% at 50% 112%,
+            #ff8a3d 0%,
+            #ffcda1 38%,
+            rgb(255 205 161 / 0) 72%
+        ),
+        #ffffff;
+}
+
+/* Landing hero — minimal: near-white with one faint glow resting at the very
+   top, gone by mid-viewport. Restrained on purpose (startup-minimal, not the
+   full-bleed vivid dashboard background above) — color is used sparingly so
+   the typography and product carry the page. */
+.meero-landing-hero-bg {
+    background:
+        radial-gradient(
+            60% 42% at 50% -6%,
+            #fff1e8 0%,
+            rgb(255 241 232 / 0) 72%
+        ),
+        #ffffff;
+}
+
+/* Home hero background — a giant soft orange light shining behind a white
+   UI. Entirely static CSS (no canvas/WebGL): this replaced an animated
+   Prism shader background that cost a continuous 100-step raymarch every
+   frame and read as busier than this page wants.
+
+   Built from stacked radial gradients rather than one flat gradient, so
+   the falloff stays atmospheric with no visible gradient boundary:
+     1. pale cream core   — the "hot" center of the light
+     2. amber body        — the saturated heart of the glow
+     3. broad orange haze — wide ambient spill, keeps edges from ending
+     4. soft left echo    — balances the composition off the bright side
+   The core sits off-center (right of the heading, high in the frame) so
+   the brightest area never lands behind the hero copy — dark text stays on
+   near-white pixels, which is what keeps contrast strong. ::before adds a
+   genuinely blurred bloom on top of that (static, composited once — not a
+   per-frame cost), ::after lays down a faint grain so the wide flat areas
+   don't band on 8-bit displays. The mask fades the whole thing out by
+   mid-page so the content below sits on clean white. */
+.meero-hero-glow {
+    background:
+        radial-gradient(
+            34% 30% at 64% 20%,
+            rgb(255 249 240 / 0.95) 0%,
+            rgb(255 249 240 / 0) 72%
+        ),
+        radial-gradient(
+            46% 44% at 63% 23%,
+            rgb(255 193 128 / 0.5) 0%,
+            rgb(255 193 128 / 0) 74%
+        ),
+        radial-gradient(
+            88% 74% at 58% 16%,
+            rgb(255 141 64 / 0.26) 0%,
+            rgb(255 141 64 / 0) 78%
+        ),
+        radial-gradient(
+            42% 40% at 20% 40%,
+            rgb(255 186 126 / 0.18) 0%,
+            rgb(255 186 126 / 0) 76%
+        ),
+        #fffdfb;
+    mask-image: linear-gradient(to bottom, black 0%, black 32%, transparent 80%);
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black 32%,
+        transparent 80%
+    );
+}
+
+/* Blurred bloom — the diffuse "light bleeding through" layer. */
+.meero-hero-glow::before {
+    content: "";
+    position: absolute;
+    inset: -10%;
+    pointer-events: none;
+    background:
+        radial-gradient(
+            30% 26% at 66% 18%,
+            rgb(255 167 84 / 0.4) 0%,
+            rgb(255 167 84 / 0) 70%
+        ),
+        radial-gradient(
+            22% 20% at 46% 30%,
+            rgb(255 208 150 / 0.32) 0%,
+            rgb(255 208 150 / 0) 72%
+        );
+    filter: blur(56px);
+}
+
+/* Grain — barely-there texture that stops the wide, soft falloff from
+   banding into visible steps on 8-bit displays. */
+.meero-hero-glow::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Hero video overlay — just enough of a dark gradient at the top and
+   bottom to keep the nav and the copy/composer legible; the footage stays
+   fully visible (no hazy wash) through the rest of the frame. */
+.meero-hero-video-overlay {
+    background: linear-gradient(
+        to bottom,
+        rgb(10 8 4 / 0.55) 0%,
+        rgb(10 8 4 / 0.15) 22%,
+        rgb(10 8 4 / 0.15) 60%,
+        rgb(10 8 4 / 0.5) 100%
+    );
+}
+
+/* Softer, whiter variant for the auth side panel */
+.meero-gradient-soft {
+    background:
+        radial-gradient(
+            120% 70% at 50% 112%,
+            #ff7a2b 0%,
+            #ffb27a 40%,
+            rgb(255 178 122 / 0) 72%
+        ),
+        linear-gradient(180deg, #ffffff 0%, #fff7f1 55%, #ffeada 100%);
+}
+
+/* Brand surfaces — solid ink, warmed by the accent on gradients */
+.meero-mark {
+    background: #0a0a0a;
+}
+
+.meero-text-gradient {
+    background: linear-gradient(120deg, #2b2f3a 0%, #4a4f5c 55%, #23262f 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+::selection {
+    background: rgb(43 47 58 / 0.16);
+}
+
+/* Entrance motion — staggered rise-in for hero content */
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.animate-rise {
+    animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rise-1 {
+    animation-delay: 60ms;
+}
+.rise-2 {
+    animation-delay: 130ms;
+}
+.rise-3 {
+    animation-delay: 200ms;
+}
+.rise-4 {
+    animation-delay: 280ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+    .animate-rise {
+        animation: none;
+    }
+}
+
+/* Chat message entrance */
+@keyframes msg-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.animate-msg {
+    animation: msg-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-msg {
+        animation: none;
+    }
+}
+
+/* Popover entrance for custom dropdowns */
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: translateY(4px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.animate-pop {
+    animation: pop 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: top left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-pop {
+        animation: none;
+    }
+}
+
+/* Builder canvas content — a soft crossfade when switching between
+   Preview/Code/History/Connections instead of an instant swap. */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in {
+        animation: none;
+    }
+}
+
+/* "How it works" step cards — skeleton code lines pulsing as if being
+   generated live, and a blinking caret on the composer preview's cycling
+   text. */
+@keyframes code-shimmer {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.animate-code-shimmer {
+    animation: code-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes blink-caret {
+    0%,
+    49% {
+        opacity: 1;
+    }
+    50%,
+    100% {
+        opacity: 0;
+    }
+}
+
+.animate-blink {
+    animation: blink-caret 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-code-shimmer,
+    .animate-blink {
+        animation: none;
+        opacity: 1;
+    }
+}
+
+/* Tactile press feedback on every interactive button */
+button:not(:disabled) {
+    cursor: pointer;
+    transition:
+        transform 130ms cubic-bezier(0.2, 0.8, 0.4, 1),
+        background-color 150ms ease,
+        color 150ms ease,
+        border-color 150ms ease,
+        box-shadow 150ms ease,
+        opacity 150ms ease;
+}
+
+button:not(:disabled):active {
+    transform: scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    button:not(:disabled),
+    button:not(:disabled):active {
+        transition: none;
+        transform: none;
+    }
+}
+
+/* shadcn/ui semantic tokens. Mapped onto Meero's monochrome white/ink palette
+   so Base UI components restyle in brand — `primary` is a cool dark gray
+   (#2b2f3a, sits with the blue-sky home background; no orange accent anymore),
+   `foreground` is black ink, `muted`/`accent` are the neutral hover surface,
+   `border`/`input` are the silver line. `dark:*` classes compile (class
+   strategy) but are never triggered — the UI is white-only. */
+   @custom-variant dark (&:is(.dark *));
+
+   :root {
+	--radius: 0.45rem;
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--primary: #2b2f3a;
+    --primary-foreground: #ffffff;
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--radius: 0.625rem;
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.922 0 0);
+	--sidebar-ring: oklch(0.708 0 0);
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+   }
+
+   .dark {
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.205 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: #2b2f3a;
+    --primary-foreground: #ffffff;
+	--secondary: oklch(0.269 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent: oklch(0.269 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+	--chart-1: oklch(0.87 0 0);
+	--chart-2: oklch(0.556 0 0);
+	--chart-3: oklch(0.439 0 0);
+	--chart-4: oklch(0.371 0 0);
+	--chart-5: oklch(0.269 0 0);
+	--sidebar: oklch(0.205 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.269 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.556 0 0);
+   }
+
+   @theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--animate-rainbow: rainbow var(--speed, 2s) infinite linear;
+	--color-color-5: var(----color-5);
+	--color-color-4: var(----color-4);
+	--color-color-3: var(----color-3);
+	--color-color-2: var(----color-2);
+	--color-color-1: var(----color-1);
+	--color-brand: var(--brand);
+	--color-highlight: var(--highlight);
+
+	@keyframes rainbow {
+		0% {
+			background-position: 0%;
+		}
+		100% {
+			background-position: 200%;
+		}
+	}
+	@keyframes rainbow {
+		0% {
+			background-position: 0%;
+		}
+		100% {
+			background-position: 200%;
+		}
+	}
+	@keyframes wobble {
+		0%,
+		100% {
+			transform: translateX(-90%);
+		}
+		50% {
+			transform: translateX(90%);
+		}
+	}
+	--font-heading: var(--font-sans);
+	--font-sans: var(--font-sans);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6)
+   }
+
+   @layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+  html {
+    @apply font-sans;
+    }
+   }
+   .hidden_scrollbar {
+	overflow: auto;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+   }
+
+   .hidden_scrollbar::-webkit-scrollbar {
+	display: none;
+   }
+
+   .animate-wobble {
+	animation: wobble 1.55s ease-in-out infinite;
+   }
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+}

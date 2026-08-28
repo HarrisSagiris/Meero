@@ -1,0 +1,44 @@
+# Production overlay — layered on top of docker-compose.yml:
+#   make up   (with APP_ENV=prod in ./.env)
+# or directly:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Only the one value that genuinely can't be a runtime toggle lives here:
+# NEXT_PUBLIC_ORCHESTRATOR_URL is inlined into the Next.js client bundle at
+# BUILD time (Next.js's own NEXT_PUBLIC_* convention), so switching it means
+# rebuilding the image with a different build arg, not setting a different
+# env var at container start. Everything else the orchestrator itself
+# controls (frontend_url, allowed_origins, OAuth callback URLs, billing
+# return URLs) is driven by APP_ENV in apps/orchestrator/.env instead — see
+# app/config.py's _derive_env_urls() — and doesn't need duplicating here.
+#
+# Reminder: going to prod also means updating the callback URLs registered
+# on the real GitHub OAuth App and Supabase OAuth App (external dashboard
+# settings this file can't reach) to their https://api.meero.im equivalents,
+# and Supabase Auth's own Site URL / redirect allow-list to meero.im. See
+# deploy/README.md for the full VPS + nginx walkthrough.
+
+services:
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_ORCHESTRATOR_URL: https://api.meero.im
+
+  api:
+    # A real reverse proxy (nginx, see deploy/nginx/) now sits in front of
+    # this container, so without --proxy-headers every request would look
+    # like it came from nginx's own address — silently breaking
+    # rate_limit.py's real per-client IP buckets (GitHub OAuth callback,
+    # Stripe webhook, WS handshake all key on request.client.host).
+    # --forwarded-allow-ips=* is safe HERE specifically because this port
+    # is bound to 127.0.0.1 (BIND_ADDR, docker-compose.yml) — nginx on the
+    # same host is the ONLY thing that can ever reach it, so there's no
+    # untrusted caller that could forge X-Forwarded-For directly. This
+    # would NOT be safe if the port were ever published more broadly.
+    command:
+      [
+        "uvicorn", "app.main:app",
+        "--host", "0.0.0.0", "--port", "8000",
+        "--proxy-headers", "--forwarded-allow-ips=*",
+      ]

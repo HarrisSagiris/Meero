@@ -1,0 +1,13 @@
+-- Meero — plain-English "is my app ready?" readiness checklist.
+--
+-- Real, automated checks run by the web worker against the build's own
+-- live /preview page right after a successful build (headless Chromium,
+-- already vendored for screenshots — see app/readiness_check.py): can a
+-- visitor sign up, can they log in, and — for every owner-scoped table
+-- (one whose RLS policy actually references auth.uid(), detected from the
+-- real schema.sql text) — does an anonymous session genuinely get blocked
+-- from reading it. No new writable surface needed: `builds` already has no
+-- authenticated INSERT/UPDATE policy (00001_init.sql), only the
+-- service-role orchestrator ever writes a build row, so this column needs
+-- no additional RLS or trigger protection beyond what's already there.
+alter table public.builds add column if not exists readiness_checks jsonb;

@@ -1,0 +1,193 @@
+# Meero — the full stack, local or production.
+#
+#   make up      (reads APP_ENV from ./.env — "local" or "prod" — and layers
+#                 docker-compose.prod.yml automatically when it's "prod")
+#
+# or run compose directly:
+#   docker compose build && docker compose up -d                              # local
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml build \
+#     && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d # prod
+#
+# Reads NEXT_PUBLIC_* from ./.env (compose auto-loads it) and the
+# orchestrator secrets from ./apps/orchestrator/.env — that file has its OWN
+# APP_ENV flag (app/config.py) that derives frontend_url/allowed_origins/
+# OAuth callbacks/etc.; set both together when you actually deploy to
+# meero.im. See docker-compose.prod.yml for the one value (the Next.js
+# build-time NEXT_PUBLIC_ORCHESTRATOR_URL) that has to be a compose-level
+# override rather than a runtime setting.
+#
+# Every plan builds the same real thing: a secure, full-stack Next.js +
+# shadcn/ui app on the user's own Supabase. web-worker (a real `next build`
+# static export, no special hardware — just more RAM/CPU than the old
+# esbuild pipeline) handles that for everyone. deploy-worker (real Vercel
+# REST API deployments, Vercel running its own `next build`) is the
+# separate, Pro & Ultra production-release action — plain Linux with
+# outbound HTTPS, nothing exotic anywhere in this stack.
+#
+# BIND_ADDR (below, on every published port): "0.0.0.0" locally (reachable
+# from your machine/LAN, today's default) — the Makefile exports
+# "127.0.0.1" automatically for APP_ENV=prod, so web/api/redis are only
+# reachable from the VPS itself once a reverse proxy (see deploy/nginx/) is
+# the real public entry point. Never publish these three ports on 0.0.0.0
+# on a real server — see deploy/README.md.
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        # What the BROWSER uses to reach the orchestrator (WebSocket + fallback)
+        NEXT_PUBLIC_ORCHESTRATOR_URL: ${NEXT_PUBLIC_ORCHESTRATOR_URL:-http://localhost:8000}
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:3000:3000"
+    env_file: .env
+    environment:
+      # Server-side calls go over the compose network, not localhost
+      ORCHESTRATOR_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./apps/orchestrator
+      target: base
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:8000:8000"
+    env_file: apps/orchestrator/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      WORKSPACE_DIR: /workspace
+      # ALLOWED_ORIGINS is intentionally NOT set here — apps/orchestrator/.env's
+      # own APP_ENV derives it (app/config.py); a compose-level override
+      # would silently defeat that single-flag switch.
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  codegen-worker:
+    build:
+      context: ./apps/orchestrator
+      target: base
+    command: ["python", "-m", "app.workers.codegen_worker"]
+    env_file: apps/orchestrator/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      WORKSPACE_DIR: /workspace
+    volumes:
+      - codegen-workspace:/workspace
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web-worker:
+    build:
+      context: ./apps/orchestrator
+      target: web-worker
+    command: ["python", "-m", "app.workers.web_worker"]
+    env_file: apps/orchestrator/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      WORKSPACE_DIR: /workspace
+      APP_VENDOR_DIR: /vendor/app
+      # How this container reaches its own just-published /preview route to
+      # screenshot it (see _capture_screenshot in web_worker.py) — the
+      # internal docker network address, same value the `web` service above
+      # uses to reach the API server-side.
+      ORCHESTRATOR_INTERNAL_URL: http://api:8000
+    volumes:
+      - web-workspace:/workspace
+      # The Next.js/shadcn/Supabase toolchain is installed here once at
+      # image-build time (Dockerfile); named volume just persists it across
+      # recreates.
+      - app-vendor:/vendor/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 90s
+    # Scale throughput by running more replicas (each pulls one job at a time
+    # off the shared queue). A real `next build` is heavier than the old
+    # esbuild bundle — more memory per replica, timeout matches
+    # Settings.build_timeout_s (600s default).
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+
+  deploy-worker:
+    build:
+      context: ./apps/orchestrator
+      target: base
+    command: ["python", "-m", "app.workers.deploy_worker"]
+    env_file: apps/orchestrator/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      WORKSPACE_DIR: /workspace
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 60s
+    # Releases are I/O-bound HTTP calls to Vercel — one modest replica is
+    # plenty; ultra release volume is far lower than base builds.
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512m
+
+  superagent-worker:
+    build:
+      context: ./apps/orchestrator
+      target: base
+    command: ["python", "-m", "app.workers.superagent_worker"]
+    env_file: apps/orchestrator/.env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 60s
+    # Real OpenAI calls (repo-file selection + patch generation, same
+    # llm() codegen-worker uses) plus GitHub API reads/writes — I/O-bound,
+    # no local build/workspace needed (unlike web-worker's real `next
+    # build`), so one modest replica is plenty to start.
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512m
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    # Published for local debugging (redis-cli) and for future workers on
+    # other hosts to connect if you ever split the stack — bound to
+    # BIND_ADDR same as web/api, so it's localhost-only in prod by default.
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  codegen-workspace:
+  web-workspace:
+  app-vendor:

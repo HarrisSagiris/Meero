@@ -1,0 +1,25 @@
+{
+  "name": "meero",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "biome format --write",
+    "format:check": "biome format",
+    "check": "biome check --write",
+    "check:ci": "biome check"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
+    "turbo": "^2.10.9"
+  }
+}
